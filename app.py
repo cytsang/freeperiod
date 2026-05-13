@@ -31,10 +31,8 @@ try:
     # Helper: Check if a teacher teaches a specific class anywhere
     def teaches_class(teacher_name, target_class):
         row = df[df[teacher_col] == teacher_name].iloc[0]
-        # Ignore the first column (Teacher Name) and check all others
         return target_class.upper() in [str(v).strip().upper() for v in row.values[1:]]
 
-    # Create Tabs for the two different tools
     tab1, tab2 = st.tabs(["🔍 Common Free-Slot Finder", "🔄 Swap Lesson Finder"])
 
     # --- TAB 1: COMMON FREE SLOTS ---
@@ -66,7 +64,6 @@ try:
         with col2:
             swap_day = st.selectbox("Day of Lesson", available_days)
         with col3:
-            # Dynamically get periods for that day
             p_list = list(df[swap_day].columns)
             swap_period = st.selectbox("Period", p_list)
 
@@ -74,39 +71,34 @@ try:
         dis_list_s = [x.strip() for x in dis_swap.split(",") if x.strip()]
 
         if my_name != "Select...":
-            # 1. Identify the class the user wants to give up
             my_row = df[df[teacher_col] == my_name].iloc[0]
             target_class = str(my_row[(swap_day, swap_period)]).strip()
 
             if is_free(target_class, dis_list_s):
                 st.error(f"You appear to be FREE (or {target_class}) on {swap_day} P{swap_period}. Nothing to swap!")
             elif target_class.upper().endswith('M'):
-                st.error(f"Class {target_class} is an 'M' class. Swapping is not allowed for mixed classes.")
+                st.error(f"Class {target_class} is an 'M' class. Swapping is not allowed.")
             else:
                 st.info(f"Targeting swaps for Class: **{target_class}** on {swap_day} P{swap_period}")
 
-                # 2. Search for colleagues
                 partners = []
                 for _, row in df.iterrows():
                     other_name = row[teacher_col]
                     if other_name == my_name: continue
                     
-                    # Criteria A: Are they free right now?
                     if is_free(row[(swap_day, swap_period)], dis_list_s):
-                        # Criteria B: Do they teach this class elsewhere?
                         if teaches_class(other_name, target_class):
-                            # Criteria C: Where do they have this class when YOU are free?
                             return_options = []
                             for d in available_days:
                                 for p in df[d].columns:
-                                    # If they have the class AND you are free
                                     if str(row[(d, p)]).strip().upper() == target_class.upper():
                                         if is_free(my_row[(d, p)], dis_list_s):
                                             return_options.append(f"{d} P{p}")
                             
                             partners.append({
                                 "Colleague": other_name,
-                                "Potential Return Lessons": " OR ".join(return_options) if return_options else "None found"
+                                # CHANGED " OR " to ", " here:
+                                "Potential Return Lessons": ", ".join(return_options) if return_options else "None found"
                             })
 
                 if partners:
