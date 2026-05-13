@@ -33,7 +33,7 @@ try:
         row = df[df[teacher_col] == teacher_name].iloc[0]
         return target_class.upper() in [str(v).strip().upper() for v in row.values[1:]]
 
-    tab1, tab2 = st.tabs(["🔍 Common Free-Slot Finder", "🔄 Swap Lesson Finder"])
+    tab1, tab2 = st.tabs(["🔍 Common Free-Slot Finder 「Call會妥」", "🔄 Swap Lesson Finder 「調堂易」"])
 
     # --- TAB 1: COMMON FREE SLOTS ---
     with tab1:
