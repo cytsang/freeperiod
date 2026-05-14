@@ -205,7 +205,7 @@ try:
             st.header("Find Common Free Lessons")
             sel_t = st.multiselect("Select Teachers", teachers)
             sel_d = st.multiselect("Select Days", available_days, default=available_days)
-            dis_in = st.text_input("Disregard (e.g. 6*, CLP)", "6*, CLP")
+            dis_in = st.text_input("Disregard (e.g. 6*, CLP)")
             dis_l = [x.strip() for x in dis_in.split(",") if x.strip()]
 
             if sel_t:
@@ -228,7 +228,7 @@ try:
                 p_list = list(df[s_day].columns) if s_day in available_days else []
                 s_per = st.selectbox("Period", p_list)
 
-            dis_sw = st.text_input("Disregard Classes (e.g. 6*)", "CLP", key="sw_dis")
+            dis_sw = st.text_input("Disregard Classes (e.g. 6*)", key="sw_dis")
             dis_l_s = [x.strip() for x in dis_sw.split(",") if x.strip()]
 
             if my_name != "Select...":
