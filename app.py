@@ -14,47 +14,41 @@ st.title("🏫 Teacher Timetable Assistant")
 
 @st.cache_data
 def load_data():
-    # Load Excel - Row 3 is Days, Row 4 is Periods
     df = pd.read_excel("master_timetable.xlsx", header=[2, 3])
     df = df.dropna(how='all', axis=0).dropna(how='all', axis=1)
     return df
 
-# 2. High-Fidelity Word Document Generator
-def generate_formal_docx(sender, receiver, target_class, swap_info, return_info, reason):
+# 2. High-Fidelity Word Document Generator (FIXED LOGIC)
+def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_per, reason):
     doc = Document()
     
-    # Set Font to Times New Roman for the entire document
+    # Times New Roman setup
     style = doc.styles['Normal']
     font = style.font
     font.name = 'Times New Roman'
     font.size = Pt(11)
-
-    # Required for some versions of Word to respect the font change
     r = doc.styles['Normal']._element.get_or_add_rPr()
     r.get_or_add_rFonts().set(qn('w:ascii'), 'Times New Roman')
     r.get_or_add_rFonts().set(qn('w:hAnsi'), 'Times New Roman')
 
-    # Set Narrow Margins
     section = doc.sections[0]
     section.left_margin = Inches(0.5)
     section.right_margin = Inches(0.5)
 
-    # Header Section
+    # Centered Bold Titles
     h1 = doc.add_paragraph("St. Paul’s School (Lam Tin)")
     h1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run1 = h1.runs[0]
-    run1.bold = True
-    run1.font.size = Pt(14)
+    h1.runs[0].bold = True
+    h1.runs[0].font.size = Pt(14)
 
     h2 = doc.add_paragraph("Record of Exchange of Lessons")
     h2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run2 = h2.runs[0]
-    run2.bold = True
-    run2.font.size = Pt(12)
+    h2.runs[0].bold = True
+    h2.runs[0].font.size = Pt(12)
 
-    doc.add_paragraph() # Spacer
+    doc.add_paragraph()
 
-    # Top Info Fields
+    # Info Fields
     p1 = doc.add_paragraph()
     p1.add_run("Name of Teacher: ").bold = True
     p1.add_run(f"       {sender}       ").underline = True
@@ -63,13 +57,13 @@ def generate_formal_docx(sender, receiver, target_class, swap_info, return_info,
     p2.add_run("Reason for Exchange: ").bold = True
     p2.add_run(f"       {reason if reason else '____________________________________'}       ").underline = True
 
-    doc.add_paragraph() # Spacer
+    doc.add_paragraph()
 
-    # Build the 14-column table
+    # 14-column table
     table = doc.add_table(rows=3, cols=14)
     table.style = 'Table Grid'
     
-    # Row 1: Merged Side Headers
+    # Header Row 1 (Merged)
     cell_sub = table.cell(0, 0).merge(table.cell(0, 6))
     cell_sub.text = "Lessons to be substituted"
     cell_sub.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -80,57 +74,51 @@ def generate_formal_docx(sender, receiver, target_class, swap_info, return_info,
     cell_ret.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
     cell_ret.paragraphs[0].runs[0].bold = True
 
-    # Row 2: Sub-headers (Matching the image exactly)
-    sub_headers = [
-        "Date", "Day", "Class", "Period", 
-        "Subject on Timetable", 
-        "Subject Replacing the Original", 
-        "Name of Teacher Taking the Lesson"
-    ]
+    # Header Row 2 (Sub-headers matching your image)
+    sub_headers = ["Date", "Day", "Class", "Period", "Subject on Timetable", "Subject Replacing the Original", "Name of Teacher Taking the Lesson"]
     full_headers = sub_headers + sub_headers
-    
     for i, h in enumerate(full_headers):
         cell = table.cell(1, i)
         cell.text = h
-        paragraph = cell.paragraphs[0]
-        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = paragraph.runs[0]
+        p = cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.runs[0]
         run.bold = True
-        run.font.size = Pt(8) # Small font to ensure long titles fit
+        run.font.size = Pt(8)
 
-    # Row 3: Data Logic
-    s_day = swap_info.split(' ')[0]
-    s_per = swap_info.split(' ')[1]
-    r_day = return_info.split(' ')[0] if "P" in return_info else "___"
-    r_per = return_info.split(' ')[1] if "P" in return_info else "___"
+    # Helper to clean "P9" into "9"
+    def clean_p(val):
+        return str(val).replace("P", "").strip()
 
-    # Fill Substituted Side
-    table.cell(2, 1).text = s_day
-    table.cell(2, 2).text = target_class
-    table.cell(2, 3).text = s_per
-    table.cell(2, 6).text = receiver
+    # Row 3: Data Values (FIXED MAPPING)
+    # Side 1: Substituted (User gives to Partner)
+    table.cell(2, 1).text = str(s_day)
+    table.cell(2, 2).text = str(target_class)
+    table.cell(2, 3).text = clean_p(s_per)
+    table.cell(2, 6).text = str(receiver)
 
-    # Fill Returned Side
-    table.cell(2, 8).text = r_day
-    table.cell(2, 9).text = target_class
-    table.cell(2, 10).text = r_per
-    table.cell(2, 13).text = sender
+    # Side 2: Returned (Partner gives to User)
+    if r_day and r_day != "None":
+        table.cell(2, 8).text = str(r_day)
+        table.cell(2, 9).text = str(target_class)
+        table.cell(2, 10).text = clean_p(r_per)
+        table.cell(2, 13).text = str(sender)
 
-    # Footer / Signatures
+    # Footer
     doc.add_paragraph("\n\n")
     today = datetime.now().strftime("%d / %m / %Y")
     
-    footer = doc.add_table(rows=2, cols=2)
-    footer.cell(0, 0).text = f"Signature of teacher: ____________________"
-    footer.cell(0, 1).text = f"Approved by Principal: ____________________"
-    footer.cell(1, 0).text = f"Date: {today}"
-    footer.cell(1, 1).text = f"Date: ____________________"
+    ft = doc.add_table(rows=2, cols=2)
+    ft.cell(0, 0).text = f"Signature of teacher: ____________________"
+    ft.cell(0, 1).text = f"Approved by Principal: ____________________"
+    ft.cell(1, 0).text = f"Date: {today}"
+    ft.cell(1, 1).text = f"Date: ____________________"
 
     bio = BytesIO()
     doc.save(bio)
     return bio.getvalue()
 
-# 3. Application logic
+# 3. Main App Logic
 try:
     df = load_data()
     teacher_col = df.columns[0]
@@ -217,11 +205,24 @@ try:
                     e_col1, e_col2 = st.columns(2)
                     with e_col1: sel_partner = st.selectbox("Select Colleague to Swap With", [p["Colleague"] for p in partners_list])
                     
-                    partner_data = next(p for p in partners_list if p["Colleague"] == sel_partner)
-                    with e_col2: sel_ret = st.selectbox("Select Return Lesson", partner_data["Returns"] if partner_data["Returns"] else ["N/A"])
+                    p_data = next(p for p in partners_list if p["Colleague"] == sel_partner)
+                    with e_col2: sel_ret = st.selectbox("Select Return Lesson", p_data["Returns"] if p_data["Returns"] else ["None"])
                     
                     if st.button("Prepare Download"):
-                        doc_bytes = generate_formal_docx(my_name, sel_partner, target_class, f"{swap_day} P{swap_p}", sel_ret, reason)
+                        # Extract Day/Period for return lesson
+                        ret_day, ret_p = "None", "None"
+                        if " " in sel_ret:
+                            # Handling "Day X PY"
+                            parts = sel_ret.split(" ")
+                            ret_day = f"{parts[0]} {parts[1]}"
+                            ret_p = parts[2]
+                        
+                        doc_bytes = generate_formal_docx(
+                            my_name, sel_partner, target_class, 
+                            swap_day, swap_p, # Current Lesson
+                            ret_day, ret_p,    # Return Lesson
+                            reason
+                        )
                         st.download_button(label="⬇️ Download Lesson Exchange Slip", data=doc_bytes, file_name=f"Swap_{target_class}_{my_name}.docx")
                 else:
                     st.warning("No partners found.")
