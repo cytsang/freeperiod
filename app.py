@@ -4,6 +4,7 @@ import re
 from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import qn
 from io import BytesIO
 from datetime import datetime
 
@@ -18,9 +19,22 @@ def load_data():
     df = df.dropna(how='all', axis=0).dropna(how='all', axis=1)
     return df
 
-# 2. Formal Word Document Generator
+# 2. High-Fidelity Word Document Generator
 def generate_formal_docx(sender, receiver, target_class, swap_info, return_info, reason):
     doc = Document()
+    
+    # Set Font to Times New Roman for the entire document
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Times New Roman'
+    font.size = Pt(11)
+
+    # Required for some versions of Word to respect the font change
+    r = doc.styles['Normal']._element.get_or_add_rPr()
+    r.get_or_add_rFonts().set(qn('w:ascii'), 'Times New Roman')
+    r.get_or_add_rFonts().set(qn('w:hAnsi'), 'Times New Roman')
+
+    # Set Narrow Margins
     section = doc.sections[0]
     section.left_margin = Inches(0.5)
     section.right_margin = Inches(0.5)
@@ -28,54 +42,84 @@ def generate_formal_docx(sender, receiver, target_class, swap_info, return_info,
     # Header Section
     h1 = doc.add_paragraph("St. Paul’s School (Lam Tin)")
     h1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    h1.runs[0].bold = True
-    h1.runs[0].font.size = Pt(14)
+    run1 = h1.runs[0]
+    run1.bold = True
+    run1.font.size = Pt(14)
 
     h2 = doc.add_paragraph("Record of Exchange of Lessons")
     h2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    h2.runs[0].bold = True
-    h2.runs[0].font.size = Pt(12)
+    run2 = h2.runs[0]
+    run2.bold = True
+    run2.font.size = Pt(12)
 
-    doc.add_paragraph(f"Name of Teacher: {sender}").runs[0].bold = True
-    doc.add_paragraph(f"Reason for Exchange: {reason if reason else '________________________'}").runs[0].bold = True
+    doc.add_paragraph() # Spacer
+
+    # Top Info Fields
+    p1 = doc.add_paragraph()
+    p1.add_run("Name of Teacher: ").bold = True
+    p1.add_run(f"       {sender}       ").underline = True
+    
+    p2 = doc.add_paragraph()
+    p2.add_run("Reason for Exchange: ").bold = True
+    p2.add_run(f"       {reason if reason else '____________________________________'}       ").underline = True
+
+    doc.add_paragraph() # Spacer
 
     # Build the 14-column table
     table = doc.add_table(rows=3, cols=14)
     table.style = 'Table Grid'
     
+    # Row 1: Merged Side Headers
     cell_sub = table.cell(0, 0).merge(table.cell(0, 6))
     cell_sub.text = "Lessons to be substituted"
     cell_sub.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    cell_sub.paragraphs[0].runs[0].bold = True
     
     cell_ret = table.cell(0, 7).merge(table.cell(0, 13))
     cell_ret.text = "Lessons to be returned"
     cell_ret.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    cell_ret.paragraphs[0].runs[0].bold = True
 
-    headers = ["Date", "Day", "Class", "Period", "Subject", "Replacing", "Taking"]
-    for i, h in enumerate(headers + headers):
+    # Row 2: Sub-headers (Matching the image exactly)
+    sub_headers = [
+        "Date", "Day", "Class", "Period", 
+        "Subject on Timetable", 
+        "Subject Replacing the Original", 
+        "Name of Teacher Taking the Lesson"
+    ]
+    full_headers = sub_headers + sub_headers
+    
+    for i, h in enumerate(full_headers):
         cell = table.cell(1, i)
         cell.text = h
-        cell.paragraphs[0].runs[0].font.size = Pt(8)
+        paragraph = cell.paragraphs[0]
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = paragraph.runs[0]
+        run.bold = True
+        run.font.size = Pt(8) # Small font to ensure long titles fit
 
-    # Data Splitting
+    # Row 3: Data Logic
     s_day = swap_info.split(' ')[0]
     s_per = swap_info.split(' ')[1]
     r_day = return_info.split(' ')[0] if "P" in return_info else "___"
     r_per = return_info.split(' ')[1] if "P" in return_info else "___"
 
-    # Fill Table
+    # Fill Substituted Side
     table.cell(2, 1).text = s_day
     table.cell(2, 2).text = target_class
     table.cell(2, 3).text = s_per
     table.cell(2, 6).text = receiver
+
+    # Fill Returned Side
     table.cell(2, 8).text = r_day
     table.cell(2, 9).text = target_class
     table.cell(2, 10).text = r_per
     table.cell(2, 13).text = sender
 
-    # Footer
-    doc.add_paragraph("\n")
+    # Footer / Signatures
+    doc.add_paragraph("\n\n")
     today = datetime.now().strftime("%d / %m / %Y")
+    
     footer = doc.add_table(rows=2, cols=2)
     footer.cell(0, 0).text = f"Signature of teacher: ____________________"
     footer.cell(0, 1).text = f"Approved by Principal: ____________________"
@@ -108,7 +152,6 @@ try:
 
     tab1, tab2 = st.tabs(["🔍 Find free lesson 「Call會快」", "🔄 Swap Lesson 「調堂易」"])
 
-    # --- TAB 1: CALL會快 ---
     with tab1:
         st.header("Find Common Free Lessons")
         sel_t = st.multiselect("Select Teachers", teachers)
@@ -127,7 +170,6 @@ try:
                 st.table(pd.DataFrame(results).groupby('Day')['Period'].apply(lambda x: ", ".join(x)).reset_index())
             else: st.warning("No common free slots found.")
 
-    # --- TAB 2: 調堂易 ---
     with tab2:
         st.header("Swap Lesson Finder")
         col1, col2, col3 = st.columns(3)
@@ -145,9 +187,9 @@ try:
             target_class = str(my_row[(swap_day, swap_p)]).strip()
 
             if is_free(target_class, dis_l_s):
-                st.error(f"You are FREE/CLP on {swap_day} P{swap_p}. Nothing to swap!")
+                st.error(f"You are FREE/CLP on {swap_day} P{swap_p}.")
             elif target_class.upper().endswith('M'):
-                st.error(f"Class {target_class} is a mixed (M) class. Swapping is not allowed.")
+                st.error(f"Class {target_class} is a mixed (M) class. Swapping not possible.")
             else:
                 st.info(f"Finding swaps for **{target_class}** on {swap_day} P{swap_p}")
 
@@ -155,7 +197,6 @@ try:
                 for _, row in df.iterrows():
                     other_name = row[teacher_col]
                     if other_name == my_name: continue
-                    
                     if is_free(row[(swap_day, swap_p)], dis_l_s):
                         if teaches_class(other_name, target_class):
                             ret_opts = []
@@ -183,7 +224,7 @@ try:
                         doc_bytes = generate_formal_docx(my_name, sel_partner, target_class, f"{swap_day} P{swap_p}", sel_ret, reason)
                         st.download_button(label="⬇️ Download Lesson Exchange Slip", data=doc_bytes, file_name=f"Swap_{target_class}_{my_name}.docx")
                 else:
-                    st.warning("No partners found teaching this class who are free.")
+                    st.warning("No partners found.")
 
 except Exception as e:
     st.error(f"Error: {e}")
