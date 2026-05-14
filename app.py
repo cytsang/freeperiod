@@ -4,7 +4,9 @@ import re
 from docx import Document
 from docx.shared import Pt, Inches, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
+from docx.enum.table import WD_ALIGN_VERTICAL
+from docx.oxml.ns import qn, nsdecls
+from docx.oxml import parse_xml
 from io import BytesIO
 from datetime import datetime
 
@@ -54,23 +56,48 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
     h2.runs[0].font.size = Pt(12)
     h2.paragraph_format.space_after = Pt(18)
 
-    # --- Info Fields (Borderless Table for Alignment) ---
+    # --- Info Fields (Borderless Table with Bottom Borders and Vertical Alignment) ---
+    def set_cell_bottom_border(cell):
+        """Helper function to add a bottom border to a specific cell."""
+        tc = cell._tc
+        tcPr = tc.get_or_add_tcPr()
+        tcBorders = tcPr.find(qn('w:tcBorders'))
+        if tcBorders is None:
+            tcBorders = parse_xml(r'<w:tcBorders %s/>' % nsdecls('w'))
+            tcPr.append(tcBorders)
+        bottom = parse_xml(r'<w:bottom %s w:val="single" w:sz="4" w:space="0" w:color="auto"/>' % nsdecls('w'))
+        tcBorders.append(bottom)
+
     info_table = doc.add_table(rows=2, cols=2)
     info_table.autofit = False
     info_table.columns[0].width = Inches(1.6)
     info_table.columns[1].width = Inches(5.0)
 
-    # Teacher Name
-    row_n = info_table.rows[0].cells
-    p_n_label = row_n[0].paragraphs[0]
-    p_n_label.add_run("Name of Teacher:").bold = True
-    row_n[1].text = f" {sender}"
+    # Set height for info rows to ensure vertical centering is visible
+    for row in info_table.rows:
+        row.height = Cm(0.8)
 
-    # Reason
-    row_r = info_table.rows[1].cells
-    p_r_label = row_r[0].paragraphs[0]
-    p_r_label.add_run("Reason for Exchange:").bold = True
-    row_r[1].text = f" {reason if reason else ''}"
+    # Teacher Name Row
+    cell_n_label = info_table.cell(0, 0)
+    cell_n_label.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    p_n = cell_n_label.paragraphs[0]
+    p_n.add_run("Name of Teacher:").bold = True
+
+    cell_n_val = info_table.cell(0, 1)
+    cell_n_val.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    set_cell_bottom_border(cell_n_val)
+    cell_n_val.text = f" {sender}"
+
+    # Reason Row
+    cell_r_label = info_table.cell(1, 0)
+    cell_r_label.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    p_r = cell_r_label.paragraphs[0]
+    p_r.add_run("Reason for Exchange:").bold = True
+
+    cell_r_val = info_table.cell(1, 1)
+    cell_r_val.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    set_cell_bottom_border(cell_r_val)
+    cell_r_val.text = f" {reason if reason else ''}"
 
     doc.add_paragraph().paragraph_format.space_after = Pt(10)
 
