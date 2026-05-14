@@ -107,7 +107,7 @@ try:
     teachers = df[teacher_col].dropna().unique().tolist()
     available_days = [d for d in df.columns.levels[0] if "Day" in str(d)]
 
-    tab1, tab2 = st.tabs(["🔍 Common Free-Slot Finder", "🔄 Swap Lesson Finder"])
+    tab1, tab2 = st.tabs(["🔍 Find free lesson 「Call會快」", "🔄 Swap Lesson 「調堂易」"])
 
     with tab1:
         st.header("Find time for a meeting")
