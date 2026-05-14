@@ -17,7 +17,6 @@ st.title("🏫 Teacher Timetable Assistant")
 @st.cache_data
 def load_data():
     try:
-        # Ensure "master_timetable.xlsx" is in the same directory as this script
         df = pd.read_excel("master_timetable.xlsx", header=[2, 3])
         df = df.dropna(how='all', axis=0).dropna(how='all', axis=1)
         return df
@@ -40,7 +39,7 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
     r_pr.get_or_add_rFonts().set(qn('w:ascii'), 'Times New Roman')
     r_pr.get_or_add_rFonts().set(qn('w:hAnsi'), 'Times New Roman')
 
-    # Set Paper Size to A4 and adjust margins
+    # Set Paper Size to A4
     section = doc.sections[0]
     section.page_height = Cm(29.7)
     section.page_width = Cm(21.0)
@@ -62,9 +61,8 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
     h2.runs[0].font.size = Pt(12)
     h2.paragraph_format.space_after = Pt(18)
 
-    # --- Info Fields (Borderless Table with Bottom Borders and Vertical Alignment) ---
+    # --- Info Fields ---
     def set_cell_bottom_border(cell):
-        """Helper function to add a bottom border to a specific cell."""
         tc = cell._tc
         tcPr = tc.get_or_add_tcPr()
         tcBorders = tcPr.find(qn('w:tcBorders'))
@@ -79,7 +77,6 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
     info_table.columns[0].width = Inches(1.6)
     info_table.columns[1].width = Inches(5.0)
 
-    # Set height for info rows to ensure vertical centering is visible
     for row in info_table.rows:
         row.height = Cm(0.8)
 
@@ -111,11 +108,10 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
     table = doc.add_table(rows=6, cols=14)
     table.style = 'Table Grid'
     
-    # Set Height for all 4 Content Rows (Indices 2, 3, 4, 5) to 0.85cm
+    # Set Content Row Height to 0.85cm
     for i in range(2, 6):
         table.rows[i].height = Cm(0.85)
     
-    # Merge Header Row 1
     c1 = table.cell(0, 0).merge(table.cell(0, 6))
     c1.text = "Lessons to be substituted"
     c1.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -126,7 +122,6 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
     c2.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
     c2.paragraphs[0].runs[0].bold = True
 
-    # Header Row 2
     sub_headers = ["Date", "Day", "Class", "Period", "Subject on Timetable", "Subject Replacing the Original", "Name of Teacher Taking the Lesson"]
     full_headers = sub_headers + sub_headers
     for i, txt in enumerate(full_headers):
@@ -140,7 +135,6 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
 
     def clean_p(v): return str(v).replace("P", "").strip()
 
-    # Fill Data Row (Row index 2)
     table.cell(2, 1).text = str(s_day)
     table.cell(2, 2).text = str(target_class)
     table.cell(2, 3).text = clean_p(s_per)
@@ -161,11 +155,9 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
     ft.columns[0].width = Inches(3.5)
     ft.columns[1].width = Inches(3.5)
 
-    # Left: Signatures
     ft.cell(0, 0).text = "Signature of teacher: ____________________"
     ft.cell(1, 0).text = f"Date: {today}"
 
-    # Right: Principal Approval (Right-aligned)
     p_app = ft.cell(0, 1).paragraphs[0]
     p_app.text = "Approved by Principal: ____________________"
     p_app.alignment = WD_ALIGN_PARAGRAPH.RIGHT
@@ -186,9 +178,10 @@ try:
         teachers = sorted(df[teacher_col].dropna().unique().tolist())
         available_days = [d for d in df.columns.levels[0] if "Day" in str(d)]
 
+        # Updated is_free: CLP is no longer automatically free
         def is_free(val, disregards):
             val = str(val).strip().upper()
-            if val in ["NAN", "", "NONE", "CLP"]: return True
+            if val in ["NAN", "", "NONE"]: return True
             for d in disregards:
                 if "*" in d:
                     if val.startswith(d.replace("*", "").upper()): return True
@@ -205,7 +198,7 @@ try:
             st.header("Find Common Free Lessons")
             sel_t = st.multiselect("Select Teachers", teachers)
             sel_d = st.multiselect("Select Days", available_days, default=available_days)
-            dis_in = st.text_input("Disregard (e.g. 6*, CLP)")
+            dis_in = st.text_input("Disregard (e.g. 6*, CLP)") # Default text deleted
             dis_l = [x.strip() for x in dis_in.split(",") if x.strip()]
 
             if sel_t:
@@ -228,7 +221,7 @@ try:
                 p_list = list(df[s_day].columns) if s_day in available_days else []
                 s_per = st.selectbox("Period", p_list)
 
-            dis_sw = st.text_input("Disregard Classes (e.g. 6*)", key="sw_dis")
+            dis_sw = st.text_input("Disregard Classes (e.g. 6*)", key="sw_dis") # Default text deleted
             dis_l_s = [x.strip() for x in dis_sw.split(",") if x.strip()]
 
             if my_name != "Select...":
@@ -236,7 +229,7 @@ try:
                 target_class = str(my_row[(s_day, s_per)]).strip()
 
                 if is_free(target_class, dis_l_s):
-                    st.error(f"You are FREE/CLP on {s_day} P{s_per}.")
+                    st.error(f"You are FREE on {s_day} P{s_per}.")
                 elif target_class.upper().endswith('M'):
                     st.error(f"Class {target_class} is a mixed (M) class. Cannot swap.")
                 else:
@@ -259,7 +252,7 @@ try:
                         view = pd.DataFrame([{"Colleague": p["Colleague"], "Returns": ", ".join(p["Returns"]) if p["Returns"] else "None"} for p in partners])
                         st.table(view)
                         st.divider()
-                        st.subheader("📄 Generate Official Exchange Slip (在此系統仍保密時，不要用此功能gen出的嘢交去一樓)")
+                        st.subheader("📄 Generate Official Exchange Slip (系統保密，此功能所產出文件勿交至一樓)")
                         reason = st.text_input("Reason for Exchange")
                         ec1, ec2 = st.columns(2)
                         with ec1: sel_p = st.selectbox("Select Colleague", [p["Colleague"] for p in partners])
