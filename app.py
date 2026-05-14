@@ -17,6 +17,7 @@ st.title("🏫 Teacher Timetable Assistant")
 @st.cache_data
 def load_data():
     try:
+        # Ensure "master_timetable.xlsx" is in the same directory as this script
         df = pd.read_excel("master_timetable.xlsx", header=[2, 3])
         df = df.dropna(how='all', axis=0).dropna(how='all', axis=1)
         return df
@@ -39,9 +40,14 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
     r_pr.get_or_add_rFonts().set(qn('w:ascii'), 'Times New Roman')
     r_pr.get_or_add_rFonts().set(qn('w:hAnsi'), 'Times New Roman')
 
+    # Set Paper Size to A4 and adjust margins
     section = doc.sections[0]
+    section.page_height = Cm(29.7)
+    section.page_width = Cm(21.0)
     section.left_margin = Inches(0.5)
     section.right_margin = Inches(0.5)
+    section.top_margin = Inches(0.5)
+    section.bottom_margin = Inches(0.5)
 
     # --- Headings ---
     h1 = doc.add_paragraph("St. Paul’s School (Lam Tin)")
