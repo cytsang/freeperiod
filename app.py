@@ -259,7 +259,7 @@ try:
                         view = pd.DataFrame([{"Colleague": p["Colleague"], "Returns": ", ".join(p["Returns"]) if p["Returns"] else "None"} for p in partners])
                         st.table(view)
                         st.divider()
-                        st.subheader("📄 Generate Official Exchange Slip")
+                        st.subheader("📄 Generate Official Exchange Slip (在此系統仍保密時，儘量不要用此功能gen出的嘢交去一樓)")
                         reason = st.text_input("Reason for Exchange")
                         ec1, ec2 = st.columns(2)
                         with ec1: sel_p = st.selectbox("Select Colleague", [p["Colleague"] for p in partners])
