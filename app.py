@@ -61,7 +61,7 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
     h2.runs[0].font.size = Pt(12)
     h2.paragraph_format.space_after = Pt(18)
 
-    # --- Info Fields ---
+    # --- Info Fields (Borderless Table with Bottom Borders and Vertical Alignment) ---
     def set_cell_bottom_border(cell):
         tc = cell._tc
         tcPr = tc.get_or_add_tcPr()
@@ -108,10 +108,11 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
     table = doc.add_table(rows=6, cols=14)
     table.style = 'Table Grid'
     
-    # Set Content Row Height to 0.85cm
+    # Set Height for all 4 Content Rows (Indices 2, 3, 4, 5) to 0.85cm
     for i in range(2, 6):
         table.rows[i].height = Cm(0.85)
     
+    # Merge Header Row 1
     c1 = table.cell(0, 0).merge(table.cell(0, 6))
     c1.text = "Lessons to be substituted"
     c1.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -122,6 +123,7 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
     c2.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
     c2.paragraphs[0].runs[0].bold = True
 
+    # Header Row 2
     sub_headers = ["Date", "Day", "Class", "Period", "Subject on Timetable", "Subject Replacing the Original", "Name of Teacher Taking the Lesson"]
     full_headers = sub_headers + sub_headers
     for i, txt in enumerate(full_headers):
@@ -135,6 +137,7 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
 
     def clean_p(v): return str(v).replace("P", "").strip()
 
+    # Fill Data Row (Row index 2)
     table.cell(2, 1).text = str(s_day)
     table.cell(2, 2).text = str(target_class)
     table.cell(2, 3).text = clean_p(s_per)
@@ -178,7 +181,6 @@ try:
         teachers = sorted(df[teacher_col].dropna().unique().tolist())
         available_days = [d for d in df.columns.levels[0] if "Day" in str(d)]
 
-        # Updated is_free: CLP is no longer automatically free
         def is_free(val, disregards):
             val = str(val).strip().upper()
             if val in ["NAN", "", "NONE"]: return True
@@ -198,7 +200,7 @@ try:
             st.header("Find Common Free Lessons")
             sel_t = st.multiselect("Select Teachers", teachers)
             sel_d = st.multiselect("Select Days", available_days, default=available_days)
-            dis_in = st.text_input("Disregard (e.g. 6*, CLP)") # Default text deleted
+            dis_in = st.text_input("Disregard (e.g. 6*, CLP)")
             dis_l = [x.strip() for x in dis_in.split(",") if x.strip()]
 
             if sel_t:
@@ -221,17 +223,20 @@ try:
                 p_list = list(df[s_day].columns) if s_day in available_days else []
                 s_per = st.selectbox("Period", p_list)
 
-            dis_sw = st.text_input("Disregard Classes (e.g. 6*)", key="sw_dis") # Default text deleted
+            dis_sw = st.text_input("Disregard Classes (e.g. 6*)", key="sw_dis")
             dis_l_s = [x.strip() for x in dis_sw.split(",") if x.strip()]
 
             if my_name != "Select...":
                 my_row = df[df[teacher_col] == my_name].iloc[0]
                 target_class = str(my_row[(s_day, s_per)]).strip()
 
+                # LOGIC UPDATED HERE: CLP disallowed similarly to M classes
                 if is_free(target_class, dis_l_s):
                     st.error(f"You are FREE on {s_day} P{s_per}.")
                 elif target_class.upper().endswith('M'):
                     st.error(f"Class {target_class} is a mixed (M) class. Cannot swap.")
+                elif target_class.upper() == "CLP":
+                    st.error(f"CLP lessons cannot be swapped.")
                 else:
                     st.info(f"Finding swaps for **{target_class}** on {s_day} P{s_per}")
                     partners = []
@@ -252,7 +257,7 @@ try:
                         view = pd.DataFrame([{"Colleague": p["Colleague"], "Returns": ", ".join(p["Returns"]) if p["Returns"] else "None"} for p in partners])
                         st.table(view)
                         st.divider()
-                        st.subheader("📄 Generate Official Exchange Slip (系統保密，此功能所產出文件勿交至一樓)")
+                        st.subheader("📄 Generate Official Exchange Slip")
                         reason = st.text_input("Reason for Exchange")
                         ec1, ec2 = st.columns(2)
                         with ec1: sel_p = st.selectbox("Select Colleague", [p["Colleague"] for p in partners])
