@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
+import re
 from docx import Document
-from docx.shared import Pt, Inches
+from docx.shared import Pt, Inches, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from io import BytesIO
@@ -25,11 +26,13 @@ def load_data():
 def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_per, reason):
     doc = Document()
     
-    # Times New Roman setup
+    # Global Font Setup: Times New Roman 11pt
     style = doc.styles['Normal']
     font = style.font
     font.name = 'Times New Roman'
     font.size = Pt(11)
+    
+    # Set Asian/ASCII font consistency
     r_pr = doc.styles['Normal']._element.get_or_add_rPr()
     r_pr.get_or_add_rFonts().set(qn('w:ascii'), 'Times New Roman')
     r_pr.get_or_add_rFonts().set(qn('w:hAnsi'), 'Times New Roman')
@@ -51,19 +54,19 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
     h2.runs[0].font.size = Pt(12)
     h2.paragraph_format.space_after = Pt(18)
 
-    # --- Info Section (Aligning Name and Reason) ---
+    # --- Info Fields (Borderless Table for Alignment) ---
     info_table = doc.add_table(rows=2, cols=2)
     info_table.autofit = False
     info_table.columns[0].width = Inches(1.6)
     info_table.columns[1].width = Inches(5.0)
 
-    # Teacher Name Row
+    # Teacher Name
     row_n = info_table.rows[0].cells
     p_n_label = row_n[0].paragraphs[0]
     p_n_label.add_run("Name of Teacher:").bold = True
     row_n[1].text = f" {sender}"
 
-    # Reason Row
+    # Reason
     row_r = info_table.rows[1].cells
     p_r_label = row_r[0].paragraphs[0]
     p_r_label.add_run("Reason for Exchange:").bold = True
@@ -74,6 +77,10 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
     # --- Main Table (6 Rows: 2 Header + 4 Content) ---
     table = doc.add_table(rows=6, cols=14)
     table.style = 'Table Grid'
+    
+    # Set Height for all 4 Content Rows (Indices 2, 3, 4, 5) to 0.85cm
+    for i in range(2, 6):
+        table.rows[i].height = Cm(0.85)
     
     # Merge Header Row 1
     c1 = table.cell(0, 0).merge(table.cell(0, 6))
@@ -112,8 +119,6 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
         table.cell(2, 10).text = clean_p(r_per)
         table.cell(2, 13).text = str(sender)
 
-    # Rows 3, 4, 5 are left empty by default
-
     # --- Footer Section ---
     doc.add_paragraph().paragraph_format.space_before = Pt(20)
     today = datetime.now().strftime("%d / %m / %Y")
@@ -140,7 +145,7 @@ def generate_formal_docx(sender, receiver, target_class, s_day, s_per, r_day, r_
     doc.save(bio)
     return bio.getvalue()
 
-# 3. App logic
+# 3. Main Logic
 try:
     df = load_data()
     if df is not None:
