@@ -194,12 +194,12 @@ try:
             row = df[df[teacher_col] == t_name].iloc[0]
             return target_class.upper() in [str(v).strip().upper() for v in row.values[1:]]
 
-        tab1, tab2 = st.tabs(["🔍 Find free lesson 「Call會快」", "🔄 Swap Lesson 「調堂易」"])
+        tab1, tab2 = st.tabs(["🔍 eMeet「Call會快」", "🔄 eSwap「調堂易」"])
 
         with tab1:
             st.header("Find Common Free Lessons")
             sel_t = st.multiselect("Select Teachers", teachers)
-            sel_d = st.multiselect("Select Days", available_days, default=available_days)
+            sel_d = st.multiselect("Select Day(s) of cycle", available_days, default=available_days)
             dis_in = st.text_input("Disregard (e.g. 6*, CLP)")
             dis_l = [x.strip() for x in dis_in.split(",") if x.strip()]
 
@@ -218,7 +218,7 @@ try:
             st.header("Swap Lesson Finder")
             c1, c2, c3 = st.columns(3)
             with c1: my_name = st.selectbox("Your Name", ["Select..."] + teachers)
-            with c2: s_day = st.selectbox("Day of Lesson", available_days)
+            with c2: s_day = st.selectbox("Day of cycle", available_days)
             with c3:
                 p_list = list(df[s_day].columns) if s_day in available_days else []
                 s_per = st.selectbox("Period", p_list)
