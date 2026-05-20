@@ -12,7 +12,7 @@ from datetime import datetime
 
 # 1. Setup
 st.set_page_config(page_title="St. Paul's Timetable Tool", layout="wide")
-st.title("🏫 Teacher Timetable Assistant")
+st.title("🏫 SPSLT Teacher Timetable Tool (TTT)")
 
 @st.cache_data
 def load_data():
